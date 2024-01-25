@@ -1,0 +1,15 @@
+[Unit]
+Description=Gunicorn instance to serve todolist
+
+Wants=network.target
+After=syslog.target network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/todolist-flask
+ExecStart=/home/ubuntu/todolist-flask/venv/bin/gunicorn todo:app -c /home/ubuntu/todolist-flask/gunicorn_config.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

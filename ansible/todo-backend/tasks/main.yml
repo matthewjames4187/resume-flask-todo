@@ -1,0 +1,88 @@
+---
+    #update system and install git + python packages
+    - name: apt-get update
+      apt:
+        update_cache: yes
+    
+    - name: Install git
+      apt:
+        name: git
+        state: present
+
+    - name: Install Python packages
+      apt:
+        name: "{{ python_packages }}"
+        state: latest
+
+    - name: Install boto3 + botocore
+      pip:
+        name:
+          - boto3
+          - botocore
+
+    #clone down Todolist-flask, update requirements, create virtual environment, install requirements, and create env file
+    - name: Git Clone Todolist-flask
+      ansible.builtin.git:
+        repo: https://github.com/chandradeoarya/todolist-flask.git
+        dest: /home/ubuntu/todolist-flask
+        clone: yes
+        update: yes
+        version: 'env'
+
+    - name: Append gunicorn to requirements.txt 
+      lineinfile:
+        path: /home/ubuntu/todolist-flask/requirements.txt
+        line: "gunicorn"
+        insertafter: EOF
+
+    - name: Create Virtual Environment
+      command: python3 -m venv /home/ubuntu/todolist-flask/venv
+
+    - name: Install Requirements
+      pip:
+        requirements: /home/ubuntu/todolist-flask/requirements.txt
+        virtualenv: /home/ubuntu/todolist-flask/venv
+
+    - name: Create .env file in todo directory
+      copy:
+        dest: "/home/ubuntu/todolist-flask/.env"
+        content: |
+          MYSQL_DATABASE_HOST={{ mysql_db_host }}
+          MYSQL_DATABASE_USER={{ mysql_db_user }}
+          MYSQL_DATABASE_PASSWORD={{ mysql_db_password }}
+          MYSQL_DATABASE_DB={{ mysql_db_name }}
+          MYSQL_DATABASE_PORT=3306
+
+        mode: '0644'
+
+    #copy gunicorn_config.py and todolist.service from ansible controller to backend EC2 server + enable todolist.service
+    - name: Copy gunicorn_config.py
+      copy:
+        src: /home/coderbob/Desktop/code-platoon/roles/eval2-backend/files/gunicorn_config.py
+        dest: /home/ubuntu/todolist-flask/gunicorn_config.py
+
+    - name: Copy todolist.service
+      copy:
+        src: /home/coderbob/Desktop/code-platoon/roles/eval2-backend/files/todolist.service
+        dest: /etc/systemd/system/todolist.service
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable systemd service
+      systemd:
+        name: todolist.service
+        enabled: yes
+        state: started
+
+    #modify index.html on EC2 server, pull it to ansible controller, reupload it to s3-bucket, and set public permissions  
+    - name: update api url
+      lineinfile:
+        path: /home/ubuntu/todolist-flask/index.html
+        regexp: "const API_URL ="
+        line: "const API_URL = 'http://{{backend_pub_ip}}'"
+
+
+
+        
